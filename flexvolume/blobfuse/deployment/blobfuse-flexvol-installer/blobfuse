@@ -1,10 +1,13 @@
-#!/bin/sh
+#!/bin/bash
 
 DIR=$(dirname "$(readlink -f "$0")")
 JQ="/usr/bin/jq"
-BLOBFUSE="blobfuse"
+BLOBFUSE_BIN=""  # Will be modified in install.sh
+BLOBFUSE_LIB=""  # Will be modified in install.sh
 LOG="/var/log/blobfuse-driver.log"
 VER="1.0.9"
+
+echo $JSON
 
 usage() {
 	err "Invalid usage. Usage: "
@@ -37,6 +40,7 @@ mount() {
 	ACCOUNTNAME=$(echo "$JSON"|"$JQ" -r '.["kubernetes.io/secret/accountname"] // empty'|base64 -d)
 	ACCOUNTKEY=$(echo "$JSON"|"$JQ" -r '.["kubernetes.io/secret/accountkey"] // empty'|base64 -d)
 	ACCOUNTSASTOKEN=$(echo "$JSON"|"$JQ" -r '.["kubernetes.io/secret/accountsastoken"] // empty'|base64 -d)
+	BLOBENDPOINT=$(echo "$JSON"|"$JQ" -r '.blobendpoint //empty')
 	CONTAINER=$(echo "$JSON"|"$JQ" -r '.container //empty')
 	DRIVERPATH=$(echo "$JSON"|"$JQ" -r '.driverpath //empty')
 	TMP_PATH=$(echo "$JSON"|"$JQ" -r '.tmppath //empty')
@@ -64,13 +68,13 @@ mount() {
 		exit 0
 	fi
 
-        if [ ! -z "${DRIVERPATH}" ]; then
-                BLOBFUSE=$DRIVERPATH
-                echo "`date` INF: set driver path as $BLOBFUSE " >> $LOG
-        fi
+	if [ ! -z "${DRIVERPATH}" ]; then
+			BLOBFUSE_BIN=$DRIVERPATH
+			echo "`date` INF: set driver path as $BLOBFUSE_BIN " >> $LOG
+	fi
 
 	read_only_param=""
-	if [ $READ_WRITE = "ro" ]; then
+	if [[ $READ_WRITE = "ro" ]]; then
 		read_only_param="-o ro"
 	fi
 
@@ -93,9 +97,18 @@ mount() {
 	output_comand="export AZURE_STORAGE_ACCOUNT=${ACCOUNTNAME}"
 	echo "`date` INF: export storage account - ${output_comand} " >> $LOG
 	
+	if [ ! -z "${BLOBENDPOINT}" ]; then
+		export AZURE_BLOB_ENDPOINT=${BLOBENDPOINT}
+		echo "`date` INF: AZURE_BLOB_ENDPOINT is set " >> $LOG
+	fi
+
+	# add lib path for blobfuse
+	export LD_LIBRARY_PATH=${BLOBFUSE_LIB}:${LD_LIBRARY_PATH}
+	echo "`date` INF: LD_LIBRARY_PATH is added " >> $LOG
+	
 	#mounting
-	echo "`date` EXEC: ${BLOBFUSE} ${MNTPATH} --container-name=${CONTAINER} --tmp-path=${TMP_PATH} -o allow_other ${read_only_param} ${MOUNT_OPTIONS}" >>$LOG
-	${BLOBFUSE} ${MNTPATH} --container-name=${CONTAINER} --tmp-path=${TMP_PATH} -o allow_other ${read_only_param} ${MOUNT_OPTIONS}
+	echo "`date` EXEC: ${BLOBFUSE_BIN} ${MNTPATH} --container-name=${CONTAINER} --tmp-path=${TMP_PATH} -o allow_other ${read_only_param} ${MOUNT_OPTIONS}" >>$LOG
+	${BLOBFUSE_BIN} ${MNTPATH} --container-name=${CONTAINER} --tmp-path=${TMP_PATH} -o allow_other ${read_only_param} ${MOUNT_OPTIONS}
 	if [ "$?" != "0" ]; then
 		errorLog=`tail -n 1 "${LOG}"`
 		err "{ \"status\": \"Failure\", \"message\": \"Failed to mount device /dev/${diskname} at ${MNTPATH}, accountname:${ACCOUNTNAME}, error log:${errorLog}\" }"
