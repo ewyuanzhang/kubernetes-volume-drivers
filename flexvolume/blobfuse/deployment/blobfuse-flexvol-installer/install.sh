@@ -10,10 +10,6 @@ fi
 
 echo "begin to install blobfuse FlexVolume driver ${VER}, target dir:${target_dir} ..." >> $LOG
 
-#install jq
-apt-get install jq cifs-utils -y
-
-#setup blobfuse volume directory
 blobfuse_vol_dir="${target_dir}/azure~blobfuse"
 mkdir -p ${blobfuse_vol_dir} >>$LOG 2>&1
 

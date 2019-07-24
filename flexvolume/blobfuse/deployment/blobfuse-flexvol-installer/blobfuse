@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 DIR=$(dirname "$(readlink -f "$0")")
 JQ="/usr/bin/jq"
@@ -69,12 +69,12 @@ mount() {
 	fi
 
 	if [ ! -z "${DRIVERPATH}" ]; then
-			BLOBFUSE_BIN=$DRIVERPATH
-			echo "`date` INF: set driver path as $BLOBFUSE_BIN " >> $LOG
+		BLOBFUSE_BIN=$DRIVERPATH
+		echo "`date` INF: set driver path as $BLOBFUSE_BIN " >> $LOG
 	fi
 
 	read_only_param=""
-	if [[ $READ_WRITE = "ro" ]]; then
+	if [ ! -z "${READ_WRITE}" ] && [ $READ_WRITE = "ro" ]; then
 		read_only_param="-o ro"
 	fi
 
@@ -105,7 +105,7 @@ mount() {
 	# add lib path for blobfuse
 	export LD_LIBRARY_PATH=${BLOBFUSE_LIB}:${LD_LIBRARY_PATH}
 	echo "`date` INF: LD_LIBRARY_PATH is added " >> $LOG
-	
+
 	#mounting
 	echo "`date` EXEC: ${BLOBFUSE_BIN} ${MNTPATH} --container-name=${CONTAINER} --tmp-path=${TMP_PATH} -o allow_other ${read_only_param} ${MOUNT_OPTIONS}" >>$LOG
 	${BLOBFUSE_BIN} ${MNTPATH} --container-name=${CONTAINER} --tmp-path=${TMP_PATH} -o allow_other ${read_only_param} ${MOUNT_OPTIONS}
